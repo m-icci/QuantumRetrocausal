@@ -13,13 +13,9 @@ import urllib.parse
 logger = logging.getLogger(__name__)
 
 class MarketAPI:
-    def __init__(self, exchange: str = "kraken", real_mode: bool = False):
+    def __init__(self, exchange: str = "kraken"):
         self.exchange = exchange
-        self.real_mode = real_mode
         self.logger = logging.getLogger("market_api")
-        self.simulation_mode_active = False
-        self.last_error = None
-        self.status_message = "Initializing..."
 
         # Configure exchange API settings
         if self.exchange == "kraken":
@@ -27,58 +23,28 @@ class MarketAPI:
             self.api_key = os.environ.get("KRAKEN_API_KEY")
             self.api_secret = os.environ.get("KRAKEN_API_SECRET")
 
-            if real_mode and not all([self.api_key, self.api_secret]):
-                self.simulation_mode_active = True
-                self.last_error = "Missing API credentials"
-                self.status_message = "Missing Kraken API credentials"
-                self.logger.warning(self.status_message)
-            else:
-                # Test API connection
-                self._test_api_connection()
+            if not all([self.api_key, self.api_secret]):
+                raise ValueError("Missing Kraken API credentials")
+
+            # Test API connection
+            self._test_api_connection()
 
     def _test_api_connection(self):
-        """Test API connection and set appropriate status"""
+        """Test API connection and verify credentials"""
         try:
+            # Test public API first
             response = self._make_request("GET", "/0/public/Time")
-            if response and 'result' in response:
-                self.status_message = "Connected to Kraken API"
-                self.simulation_mode_active = False
-                self.last_error = None
-            else:
+            if not response or 'result' not in response:
                 raise ValueError("Invalid API response")
-        except Exception as e:
-            self.simulation_mode_active = True
-            self.last_error = str(e)
-            self.status_message = "Failed to connect to Kraken API"
-            self.logger.error(f"API connection test failed: {str(e)}")
 
-    def get_system_status(self) -> Dict[str, Any]:
-        """Get detailed system status"""
-        return {
-            "trading_mode": "simulation" if self.simulation_mode_active else "real",
-            "status_message": self.status_message,
-            "error_details": self.last_error,
-            "exchange": self.exchange,
-            "timestamp": int(time.time() * 1000)
-        }
+            self.logger.info("Successfully connected to Kraken API")
+
+        except Exception as e:
+            self.logger.error(f"API connection test failed: {str(e)}")
+            raise ValueError(f"Failed to connect to Kraken API: {str(e)}")
 
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """Get current ticker data for a symbol"""
-        if not self.real_mode or self.simulation_mode_active:
-            # Simulation mode - return dummy data
-            current_time = int(time.time() * 1000)
-            base_prices = {
-                "BTC-USDT": 50000.0,
-                "ETH-USDT": 3000.0
-            }
-            price = base_prices.get(symbol, 1000.0)
-            return {
-                "symbol": symbol,
-                "price": price,
-                "time": current_time,
-                "simulation": True
-            }
-
         try:
             # Convert symbol format for Kraken (e.g., BTC-USDT -> XBTUSDT)
             kraken_symbol = self._convert_to_kraken_symbol(symbol)
@@ -93,30 +59,14 @@ class MarketAPI:
                     "time": int(time.time() * 1000)
                 }
 
-            # If we get an error response, switch to simulation mode
-            self.simulation_mode_active = True
-            self.logger.warning(f"Switching to simulation mode due to API error: {response}")
-            return self.get_ticker(symbol)
+            raise ValueError(f"Invalid response from Kraken API: {response}")
 
         except Exception as e:
             self.logger.error(f"Error getting ticker for {symbol}: {str(e)}")
-            self.simulation_mode_active = True
-            return self.get_ticker(symbol)
+            raise
 
     def get_portfolio(self) -> Dict[str, Any]:
         """Get current portfolio balances"""
-        if not self.real_mode or self.simulation_mode_active:
-            return {
-                "total_value": 10000.0,
-                "holdings": {
-                    "USDT": 8000.0,
-                    "BTC": 0.02,
-                    "ETH": 0.5
-                },
-                "timestamp": int(time.time() * 1000),
-                "simulation": True
-            }
-
         try:
             # Get account balance
             endpoint = "/0/private/Balance"
@@ -151,20 +101,14 @@ class MarketAPI:
                     "timestamp": int(time.time() * 1000)
                 }
 
-            self.simulation_mode_active = True
-            self.logger.warning(f"Switching to simulation mode due to API error: {response}")
-            return self.get_portfolio()
+            raise ValueError(f"Invalid response from Kraken API: {response}")
 
         except Exception as e:
             self.logger.error(f"Error getting portfolio: {str(e)}")
-            self.simulation_mode_active = True
-            return self.get_portfolio()
+            raise
 
     def _make_request(self, method: str, endpoint: str, data: Dict = None) -> Dict[str, Any]:
         """Make an authenticated request to the Kraken API"""
-        if not self.real_mode or self.simulation_mode_active:
-            return {"result": {}}
-
         try:
             url = f"{self.base_url}{endpoint}"
 
@@ -188,7 +132,8 @@ class MarketAPI:
 
                 headers = {
                     "API-Key": self.api_key,
-                    "API-Sign": signature
+                    "API-Sign": signature,
+                    "Content-Type": "application/x-www-form-urlencoded"
                 }
 
                 response = requests.post(url, headers=headers, data=data)
@@ -201,13 +146,10 @@ class MarketAPI:
                     raise ValueError(f"Kraken API error: {result['error']}")
                 return result
             else:
-                self.logger.error(f"API request failed: {response.text}")
-                self.simulation_mode_active = True
                 raise ValueError(f"API request failed: {response.text}")
 
         except Exception as e:
             self.logger.error(f"API request error: {str(e)}")
-            self.simulation_mode_active = True
             raise
 
     def _convert_to_kraken_symbol(self, symbol: str) -> str:
@@ -233,97 +175,82 @@ class MarketAPI:
         return conversions.get(asset, asset.lstrip("X").lstrip("Z"))
 
 class MultiExchangeAPI:
-    def __init__(self, real_mode: bool = False):
-        self.real_mode = real_mode
+    def __init__(self):
         try:
-            self.kraken = MarketAPI(exchange="kraken", real_mode=real_mode)
+            self.kraken = MarketAPI(exchange="kraken")
             self.exchanges = {"kraken": self.kraken}
-            logger.info(f"MultiExchangeAPI initialized in {'real' if real_mode else 'simulation'} mode")
+            logger.info("MultiExchangeAPI initialized with Kraken exchange")
         except Exception as e:
-            logger.error(f"Error initializing exchanges: {str(e)}")
-            self.exchanges = {}
-
-    def get_system_status(self) -> Dict[str, Any]:
-        """Get system status from all exchanges"""
-        if not self.exchanges:
-            return {
-                "trading_mode": "simulation",
-                "status_message": "No exchanges initialized",
-                "error_details": "Failed to initialize exchange connections",
-                "timestamp": int(time.time() * 1000)
-            }
-
-        # Use Kraken status
-        if "kraken" in self.exchanges:
-            return self.kraken.get_system_status()
-
-        return {
-            "trading_mode": "simulation",
-            "status_message": "No active exchanges",
-            "error_details": None,
-            "timestamp": int(time.time() * 1000)
-        }
+            logger.error(f"Error initializing Kraken exchange: {str(e)}")
+            raise
 
     def get_market_data(self) -> Dict[str, Any]:
-        """Get market data from all configured exchanges"""
+        """Get market data from Kraken"""
         market_data = {}
         for symbol in ["BTC-USDT", "ETH-USDT"]:
             try:
-                # Try each exchange until we get valid data
-                for name, exchange in self.exchanges.items():
-                    try:
-                        ticker = exchange.get_ticker(symbol)
-                        if ticker and "price" in ticker:
-                            market_data[symbol] = {
-                                "price": ticker["price"],
-                                "exchange": name,
-                                "time": ticker["time"]
-                            }
-                            break
-                    except Exception as e:
-                        logger.warning(f"Error getting {symbol} data from {name}: {str(e)}")
-                        continue
-
-                if symbol not in market_data:
-                    logger.warning(f"No valid data available for {symbol}")
-                    # Use simulation data as fallback
-                    market_data[symbol] = {
-                        "price": 50000.0 if symbol == "BTC-USDT" else 3000.0,
-                        "exchange": "simulation",
-                        "time": int(time.time() * 1000)
-                    }
-
+                ticker = self.kraken.get_ticker(symbol)
+                market_data[symbol] = {
+                    "price": ticker["price"],
+                    "exchange": "kraken",
+                    "time": ticker["time"]
+                }
             except Exception as e:
                 logger.error(f"Error processing {symbol}: {str(e)}")
-                continue
+                raise
 
         return market_data
 
     def get_portfolio(self) -> Dict[str, Any]:
-        """Get portfolio data from all exchanges"""
+        """Get portfolio data from Kraken"""
         try:
-            # Just use Kraken as primary exchange
-            if "kraken" in self.exchanges:
-                return self.kraken.get_portfolio()
-            else:
-                return {
-                    "total_value": 10000.0,
-                    "holdings": {"USDT": 10000.0},
-                    "timestamp": int(time.time() * 1000)
-                }
+            return self.kraken.get_portfolio()
         except Exception as e:
             logger.error(f"Error getting portfolio: {str(e)}")
-            return {
-                "total_value": 0.0,
-                "holdings": {},
-                "timestamp": int(time.time() * 1000),
-                "error": str(e)
-            }
+            raise
 
     def get_active_trades(self) -> List[Dict[str, Any]]:
-        # Placeholder for future implementation
-        return []
+        try:
+            # Get open orders
+            endpoint = "/0/private/OpenOrders"
+            response = self.kraken._make_request("POST", endpoint)
+
+            active_trades = []
+            if response and "result" in response and "open" in response["result"]:
+                for order_id, order in response["result"]["open"].items():
+                    current_price = self.kraken.get_ticker(order["descr"]["pair"])["price"]
+
+                    active_trades.append({
+                        "id": order_id,
+                        "symbol": order["descr"]["pair"],
+                        "type": order["descr"]["type"],
+                        "price": float(order["descr"]["price"]),
+                        "volume": float(order["vol"]),
+                        "current_price": current_price,
+                        "status": order["status"]
+                    })
+
+            return active_trades
+
+        except Exception as e:
+            logger.error(f"Error getting active trades: {str(e)}")
+            raise
 
     def close_trade(self, trade_id: str) -> Dict[str, Any]:
-        # Placeholder for future implementation
-        return {"success": False, "message": "close_trade not implemented"}
+        try:
+            # Cancel order
+            endpoint = "/0/private/CancelOrder"
+            response = self.kraken._make_request("POST", endpoint, {"txid": trade_id})
+
+            if response and "result" in response:
+                return {
+                    "success": True,
+                    "trade_id": trade_id,
+                    "status": "cancelled"
+                }
+            else:
+                raise ValueError(f"Failed to cancel trade: {response}")
+
+        except Exception as e:
+            logger.error(f"Error closing trade: {str(e)}")
+            raise

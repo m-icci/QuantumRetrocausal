@@ -19,17 +19,13 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
 # Initialize trading components
 try:
-    market_api = MultiExchangeAPI(real_mode=True)  # Initialize in real mode
+    market_api = MultiExchangeAPI()  # Now always in real mode
     quantum_analyzer = QuantumAnalyzer()
     cgr_analyzer = CGRAnalyzer()
     risk_manager = RiskManager()
 except Exception as e:
     logger.error(f"Error initializing trading components: {e}")
-    # Initialize with None to allow app to start without trading functionality
-    market_api = None
-    quantum_analyzer = None
-    cgr_analyzer = None
-    risk_manager = None
+    raise  # Fail fast if trading components can't be initialized
 
 @app.route('/')
 def index():
@@ -43,19 +39,12 @@ def healthcheck():
 def system_status():
     """Get detailed system status including trading mode and any errors"""
     try:
-        if not market_api:
-            return jsonify({
-                "trading_mode": "simulation",
-                "error": "Trading system not initialized",
-                "details": "System components failed to initialize"
-            })
-
         status = market_api.get_system_status()
         return jsonify(status)
     except Exception as e:
         logger.error(f"Error getting system status: {str(e)}")
         return jsonify({
-            "trading_mode": "simulation",
+            "trading_mode": "real",
             "error": str(e),
             "details": "Error checking system status"
         })
@@ -63,28 +52,11 @@ def system_status():
 @app.route('/api/dashboard_data')
 def dashboard_data():
     try:
-        # If trading components aren't initialized, return dummy data
-        if not all([market_api, quantum_analyzer, cgr_analyzer]):
-            return jsonify({
-                'total_value': 0,
-                'daily_pnl': 0,
-                'open_positions': 0,
-                'quantum_coherence': 0.98,
-                'current_price': 50000,
-                'cgr_points': [],
-                'active_trades': [],
-                'trading_mode': 'simulation',
-                'status_message': 'Trading components not initialized'
-            })
-
         # Get market data
         market_data = market_api.get_market_data()
 
         # Default BTC price if no data
-        btc_price = market_data.get('BTC-USDT', {}).get('price', 50000)
-
-        # Get system status
-        system_status = market_api.get_system_status()
+        btc_price = market_data.get('BTC-USDT', {}).get('price', 0)
 
         # Perform quantum analysis
         quantum_metrics = quantum_analyzer.analyze(market_data)
@@ -103,28 +75,20 @@ def dashboard_data():
             'total_value': portfolio.get('total_value', 0),
             'daily_pnl': daily_pnl,
             'open_positions': len(active_trades),
-            'quantum_coherence': quantum_metrics.get('coherence', 0.98),
+            'quantum_coherence': quantum_metrics.get('coherence', 0),
             'current_price': btc_price,
             'cgr_points': cgr_patterns.get('points', []),
             'active_trades': active_trades,
-            'trading_mode': system_status.get('trading_mode', 'simulation'),
-            'status_message': system_status.get('status_message', ''),
-            'error_details': system_status.get('error_details', '')
+            'trading_mode': 'real',  # Always real mode now
+            'exchange': 'Kraken'
         })
     except Exception as e:
         logger.error(f"Error getting dashboard data: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'trading_mode': 'simulation',
-            'status_message': 'Error occurred while fetching data'
-        }), 500
+        raise  # Let the error propagate to show real issues
 
 @app.route('/api/close_trade', methods=['POST'])
 def close_trade():
     try:
-        if not market_api:
-            return jsonify({'error': 'Trading system not initialized'}), 503
-
         trade_id = request.json.get('trade_id')
         if not trade_id:
             return jsonify({'error': 'Missing trade_id'}), 400
@@ -133,7 +97,7 @@ def close_trade():
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error closing trade: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        raise  # Let the error propagate to show real issues
 
 if __name__ == '__main__':
     # ALWAYS serve on port 5000 and bind to 0.0.0.0
