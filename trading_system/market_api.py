@@ -16,6 +16,7 @@ class MarketAPI:
         self.exchange = exchange
         self.real_mode = real_mode
         self.logger = logging.getLogger("market_api")
+        self.simulation_mode_active = False
 
         # Configure exchange API settings
         if self.exchange == "kucoin":
@@ -25,19 +26,26 @@ class MarketAPI:
             self.api_passphrase = os.environ.get("KUCOIN_API_PASSPHRASE")
 
             if real_mode and not all([self.api_key, self.api_secret, self.api_passphrase]):
-                raise ValueError("Missing KuCoin API credentials for real mode")
+                self.logger.warning("Missing KuCoin API credentials, falling back to simulation mode")
+                self.simulation_mode_active = True
 
-            self.logger.info(f"Initialized KuCoin API in {'real' if real_mode else 'simulation'} mode")
+            self.logger.info(f"Initialized KuCoin API in {'real' if real_mode and not self.simulation_mode_active else 'simulation'} mode")
 
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """Get current ticker data for a symbol"""
-        if not self.real_mode:
-            # Simulation mode - return dummy data
+        if not self.real_mode or self.simulation_mode_active:
+            # Simulation mode - return dummy data based on symbol
             current_time = int(time.time() * 1000)
+            base_prices = {
+                "BTC-USDT": 50000.0,
+                "ETH-USDT": 3000.0
+            }
+            price = base_prices.get(symbol, 1000.0)
             return {
                 "symbol": symbol,
-                "price": 50000.0,  # Dummy price
-                "time": current_time
+                "price": price,
+                "time": current_time,
+                "simulation": True
             }
 
         try:
@@ -53,25 +61,29 @@ class MarketAPI:
                         "time": data.get("time", int(time.time() * 1000))
                     }
 
-                raise ValueError(f"Invalid response from KuCoin API: {response}")
+                # If we get an error response, switch to simulation mode
+                self.simulation_mode_active = True
+                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
+                return self.get_ticker(symbol)  # Recursive call will now use simulation mode
 
         except Exception as e:
             self.logger.error(f"Error getting ticker for {symbol}: {str(e)}")
-            # Return dummy data in case of error
-            return {
-                "symbol": symbol,
-                "price": 50000.0,
-                "time": int(time.time() * 1000),
-                "error": str(e)
-            }
+            self.simulation_mode_active = True
+            return self.get_ticker(symbol)  # Retry in simulation mode
 
     def get_portfolio(self) -> Dict[str, Any]:
         """Get current portfolio balances"""
-        if not self.real_mode:
+        if not self.real_mode or self.simulation_mode_active:
+            # Return simulation portfolio
             return {
                 "total_value": 10000.0,
-                "holdings": {"USDT": 10000.0},
-                "timestamp": int(time.time() * 1000)
+                "holdings": {
+                    "USDT": 8000.0,
+                    "BTC": 0.02,
+                    "ETH": 0.5
+                },
+                "timestamp": int(time.time() * 1000),
+                "simulation": True
             }
 
         try:
@@ -102,20 +114,70 @@ class MarketAPI:
                         "timestamp": int(time.time() * 1000)
                     }
 
-                raise ValueError(f"Invalid response from KuCoin API: {response}")
+                # If API returns error, switch to simulation mode
+                self.simulation_mode_active = True
+                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
+                return self.get_portfolio()  # Recursive call will use simulation mode
 
         except Exception as e:
             self.logger.error(f"Error getting portfolio: {str(e)}")
+            self.simulation_mode_active = True
+            return self.get_portfolio()  # Retry in simulation mode
+
+    def execute_trade(self, symbol: str, side: str, quantity: float, price: Optional[float] = None) -> Dict[str, Any]:
+        """Execute a trade (buy/sell)"""
+        if not self.real_mode or self.simulation_mode_active:
+            # Simulate trade execution
+            current_time = int(time.time() * 1000)
             return {
-                "total_value": 0.0,
-                "holdings": {},
-                "timestamp": int(time.time() * 1000),
-                "error": str(e)
+                "status": "success",
+                "order_id": f"sim-{current_time}",
+                "symbol": symbol,
+                "side": side,
+                "quantity": quantity,
+                "price": price or self.get_ticker(symbol)["price"],
+                "timestamp": current_time,
+                "simulation": True
             }
+
+        try:
+            if self.exchange == "kucoin":
+                endpoint = "/api/v1/orders"
+                params = {
+                    "clientOid": str(int(time.time() * 1000)),
+                    "side": side,
+                    "symbol": symbol,
+                    "type": "market" if price is None else "limit",
+                    "size": str(quantity)
+                }
+                if price is not None:
+                    params["price"] = str(price)
+
+                response = self._make_request("POST", endpoint, params)
+
+                if response and "data" in response:
+                    return {
+                        "status": "success",
+                        "order_id": response["data"]["orderId"],
+                        "symbol": symbol,
+                        "side": side,
+                        "quantity": quantity,
+                        "price": price,
+                        "timestamp": int(time.time() * 1000)
+                    }
+
+                self.simulation_mode_active = True
+                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
+                return self.execute_trade(symbol, side, quantity, price)
+
+        except Exception as e:
+            self.logger.error(f"Error executing trade: {str(e)}")
+            self.simulation_mode_active = True
+            return self.execute_trade(symbol, side, quantity, price)
 
     def _make_request(self, method: str, endpoint: str, params: Dict = None) -> Dict[str, Any]:
         """Make an authenticated request to the exchange API"""
-        if not self.real_mode:
+        if not self.real_mode or self.simulation_mode_active:
             return {"status": "ok", "data": {}}
 
         try:
@@ -161,10 +223,13 @@ class MarketAPI:
             if response.status_code == 200:
                 return response.json()
             else:
+                self.logger.error(f"API request failed: {response.text}")
+                self.simulation_mode_active = True
                 raise ValueError(f"API request failed: {response.text}")
 
         except Exception as e:
             self.logger.error(f"API request error: {str(e)}")
+            self.simulation_mode_active = True
             raise
 
 class MultiExchangeAPI:

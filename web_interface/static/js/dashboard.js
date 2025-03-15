@@ -54,6 +54,11 @@ function initializeCharts() {
 
 // Update dashboard with new data
 function updateDashboard(data) {
+    // Update mode badge
+    const modeBadge = document.getElementById('mode-badge');
+    modeBadge.textContent = data.simulation_mode ? 'Simulation Mode' : 'Real Mode';
+    modeBadge.className = `badge ${data.simulation_mode ? 'bg-warning' : 'bg-success'}`;
+
     // Update portfolio metrics
     document.getElementById('total-value').textContent = `$${data.total_value.toFixed(2)}`;
     document.getElementById('daily-pnl').textContent = `${data.daily_pnl >= 0 ? '+' : ''}$${data.daily_pnl.toFixed(2)}`;
@@ -64,7 +69,7 @@ function updateDashboard(data) {
     if (marketChart) {
         marketChart.data.labels.push(new Date().toLocaleTimeString());
         marketChart.data.datasets[0].data.push(data.current_price);
-        
+
         // Keep last 50 data points
         if (marketChart.data.labels.length > 50) {
             marketChart.data.labels.shift();
@@ -82,11 +87,11 @@ function updateDashboard(data) {
     // Update active trades table
     const tradesTable = document.getElementById('active-trades');
     tradesTable.innerHTML = '';
-    
+
     data.active_trades.forEach(trade => {
         const row = document.createElement('tr');
         const pnlClass = trade.pnl >= 0 ? 'text-success' : 'text-danger';
-        
+
         row.innerHTML = `
             <td>${trade.symbol}</td>
             <td>${trade.type}</td>
@@ -114,11 +119,11 @@ async function closeTrade(tradeId) {
             },
             body: JSON.stringify({ trade_id: tradeId })
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to close trade');
         }
-        
+
         // Refresh data after closing trade
         fetchDashboardData();
     } catch (error) {
@@ -142,7 +147,7 @@ async function fetchDashboardData() {
 document.addEventListener('DOMContentLoaded', () => {
     initializeCharts();
     fetchDashboardData();
-    
+
     // Update every 5 seconds
     setInterval(fetchDashboardData, 5000);
 });
