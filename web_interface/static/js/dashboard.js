@@ -11,7 +11,7 @@ function initializeCharts() {
         data: {
             labels: [],
             datasets: [{
-                label: 'BTC-USDT',
+                label: 'BTC-USD',
                 data: [],
                 borderColor: 'rgb(75, 192, 192)',
                 tension: 0.1
@@ -54,17 +54,9 @@ function initializeCharts() {
 
 // Update dashboard with new data
 function updateDashboard(data) {
-    // Update mode badge and status message
-    const modeBadge = document.getElementById('mode-badge');
-    const isSimulation = data.trading_mode === 'simulation';
-    modeBadge.textContent = `${data.trading_mode.toUpperCase()} MODE`;
-    modeBadge.className = `badge ${isSimulation ? 'bg-warning' : 'bg-success'}`;
-
-    // Add tooltip with status message if there's an error
-    if (data.error_details) {
-        modeBadge.title = `${data.status_message}: ${data.error_details}`;
-        // Add warning icon if in simulation mode due to error
-        modeBadge.innerHTML += ' <i data-feather="alert-triangle"></i>';
+    if (data.error) {
+        console.error('Error:', data.error);
+        return;
     }
 
     // Update portfolio metrics
@@ -74,7 +66,7 @@ function updateDashboard(data) {
     document.getElementById('quantum-coherence').textContent = `${(data.quantum_coherence * 100).toFixed(0)}%`;
 
     // Update market chart
-    if (marketChart) {
+    if (marketChart && data.current_price) {
         marketChart.data.labels.push(new Date().toLocaleTimeString());
         marketChart.data.datasets[0].data.push(data.current_price);
 
@@ -103,10 +95,10 @@ function updateDashboard(data) {
         row.innerHTML = `
             <td>${trade.symbol}</td>
             <td>${trade.type}</td>
-            <td>$${trade.entry_price.toFixed(2)}</td>
-            <td>$${trade.current_price.toFixed(2)}</td>
-            <td class="${pnlClass}">${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}%</td>
-            <td>${trade.quantum_score.toFixed(2)}</td>
+            <td>$${trade.price.toFixed(2)}</td>
+            <td>$${trade.current_price ? trade.current_price.toFixed(2) : trade.price.toFixed(2)}</td>
+            <td class="${pnlClass}">${trade.pnl ? (trade.pnl >= 0 ? '+' : '') + trade.pnl.toFixed(2) + '%' : '0.00%'}</td>
+            <td>${trade.quantum_score ? trade.quantum_score.toFixed(2) : 'N/A'}</td>
             <td>
                 <button class="btn btn-sm btn-danger" onclick="closeTrade('${trade.id}')">
                     Close
@@ -115,8 +107,6 @@ function updateDashboard(data) {
         `;
         tradesTable.appendChild(row);
     });
-    // Update icons
-    feather.replace();
 }
 
 // Close trade function
@@ -130,15 +120,16 @@ async function closeTrade(tradeId) {
             body: JSON.stringify({ trade_id: tradeId })
         });
 
+        const data = await response.json();
         if (!response.ok) {
-            throw new Error('Failed to close trade');
+            throw new Error(data.error || 'Failed to close trade');
         }
 
         // Refresh data after closing trade
         fetchDashboardData();
     } catch (error) {
         console.error('Error closing trade:', error);
-        alert('Failed to close trade. Please try again.');
+        alert(`Failed to close trade: ${error.message}`);
     }
 }
 
@@ -147,6 +138,9 @@ async function fetchDashboardData() {
     try {
         const response = await fetch('/api/dashboard_data');
         const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch dashboard data');
+        }
         updateDashboard(data);
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
