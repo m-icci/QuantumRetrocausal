@@ -8,11 +8,12 @@ import json
 from typing import Dict, List, Any, Optional
 import requests
 from datetime import datetime
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
 class MarketAPI:
-    def __init__(self, exchange: str = "kucoin", real_mode: bool = False):
+    def __init__(self, exchange: str = "kraken", real_mode: bool = False):
         self.exchange = exchange
         self.real_mode = real_mode
         self.logger = logging.getLogger("market_api")
@@ -21,16 +22,15 @@ class MarketAPI:
         self.status_message = "Initializing..."
 
         # Configure exchange API settings
-        if self.exchange == "kucoin":
-            self.base_url = "https://api.kucoin.com"
-            self.api_key = os.environ.get("KUCOIN_API_KEY")
-            self.api_secret = os.environ.get("KUCOIN_API_SECRET")
-            self.api_passphrase = os.environ.get("KUCOIN_API_PASSPHRASE")
+        if self.exchange == "kraken":
+            self.base_url = "https://api.kraken.com"
+            self.api_key = os.environ.get("KRAKEN_API_KEY")
+            self.api_secret = os.environ.get("KRAKEN_API_SECRET")
 
-            if real_mode and not all([self.api_key, self.api_secret, self.api_passphrase]):
+            if real_mode and not all([self.api_key, self.api_secret]):
                 self.simulation_mode_active = True
                 self.last_error = "Missing API credentials"
-                self.status_message = "Missing KuCoin API credentials"
+                self.status_message = "Missing Kraken API credentials"
                 self.logger.warning(self.status_message)
             else:
                 # Test API connection
@@ -39,9 +39,9 @@ class MarketAPI:
     def _test_api_connection(self):
         """Test API connection and set appropriate status"""
         try:
-            response = self._make_request("GET", "/api/v1/timestamp")
-            if response and 'data' in response:
-                self.status_message = "Connected to KuCoin API"
+            response = self._make_request("GET", "/0/public/Time")
+            if response and 'result' in response:
+                self.status_message = "Connected to Kraken API"
                 self.simulation_mode_active = False
                 self.last_error = None
             else:
@@ -49,7 +49,7 @@ class MarketAPI:
         except Exception as e:
             self.simulation_mode_active = True
             self.last_error = str(e)
-            self.status_message = "Failed to connect to KuCoin API"
+            self.status_message = "Failed to connect to Kraken API"
             self.logger.error(f"API connection test failed: {str(e)}")
 
     def get_system_status(self) -> Dict[str, Any]:
@@ -65,7 +65,7 @@ class MarketAPI:
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """Get current ticker data for a symbol"""
         if not self.real_mode or self.simulation_mode_active:
-            # Simulation mode - return dummy data based on symbol
+            # Simulation mode - return dummy data
             current_time = int(time.time() * 1000)
             base_prices = {
                 "BTC-USDT": 50000.0,
@@ -80,32 +80,32 @@ class MarketAPI:
             }
 
         try:
-            if self.exchange == "kucoin":
-                endpoint = f"/api/v1/market/orderbook/level1?symbol={symbol}"
-                response = self._make_request("GET", endpoint)
+            # Convert symbol format for Kraken (e.g., BTC-USDT -> XBTUSDT)
+            kraken_symbol = self._convert_to_kraken_symbol(symbol)
+            endpoint = f"/0/public/Ticker?pair={kraken_symbol}"
+            response = self._make_request("GET", endpoint)
 
-                if response and "data" in response:
-                    data = response["data"]
-                    return {
-                        "symbol": symbol,
-                        "price": float(data.get("price", 0)),
-                        "time": data.get("time", int(time.time() * 1000))
-                    }
+            if response and "result" in response:
+                ticker_data = response["result"][kraken_symbol]
+                return {
+                    "symbol": symbol,
+                    "price": float(ticker_data["c"][0]),  # Last trade closed price
+                    "time": int(time.time() * 1000)
+                }
 
-                # If we get an error response, switch to simulation mode
-                self.simulation_mode_active = True
-                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
-                return self.get_ticker(symbol)  # Recursive call will now use simulation mode
+            # If we get an error response, switch to simulation mode
+            self.simulation_mode_active = True
+            self.logger.warning(f"Switching to simulation mode due to API error: {response}")
+            return self.get_ticker(symbol)
 
         except Exception as e:
             self.logger.error(f"Error getting ticker for {symbol}: {str(e)}")
             self.simulation_mode_active = True
-            return self.get_ticker(symbol)  # Retry in simulation mode
+            return self.get_ticker(symbol)
 
     def get_portfolio(self) -> Dict[str, Any]:
         """Get current portfolio balances"""
         if not self.real_mode or self.simulation_mode_active:
-            # Return simulation portfolio
             return {
                 "total_value": 10000.0,
                 "holdings": {
@@ -118,141 +118,88 @@ class MarketAPI:
             }
 
         try:
-            if self.exchange == "kucoin":
-                endpoint = "/api/v1/accounts"
-                response = self._make_request("GET", endpoint)
+            # Get account balance
+            endpoint = "/0/private/Balance"
+            response = self._make_request("POST", endpoint)
 
-                if response and "data" in response:
-                    total_value = 0.0
-                    holdings = {}
+            if response and "result" in response:
+                holdings = {}
+                total_value = 0.0
+                balances = response["result"]
 
-                    for account in response["data"]:
-                        currency = account.get("currency", "")
-                        balance = float(account.get("balance", 0))
+                for currency, balance in balances.items():
+                    amount = float(balance)
+                    if amount > 0:
+                        # Convert Kraken asset codes to standard format
+                        std_currency = self._convert_from_kraken_asset(currency)
+                        holdings[std_currency] = amount
 
-                        if balance > 0:
-                            holdings[currency] = balance
-                            if currency == "USDT":
-                                total_value += balance
-                            else:
-                                # Get current price for non-USDT assets
-                                ticker = self.get_ticker(f"{currency}-USDT")
-                                total_value += balance * ticker["price"]
+                        # Calculate total value in USDT
+                        if std_currency != "USDT":
+                            try:
+                                ticker = self.get_ticker(f"{std_currency}-USDT")
+                                value = amount * ticker["price"]
+                            except:
+                                value = 0
+                        else:
+                            value = amount
+                        total_value += value
 
-                    return {
-                        "total_value": total_value,
-                        "holdings": holdings,
-                        "timestamp": int(time.time() * 1000)
-                    }
+                return {
+                    "total_value": total_value,
+                    "holdings": holdings,
+                    "timestamp": int(time.time() * 1000)
+                }
 
-                # If API returns error, switch to simulation mode
-                self.simulation_mode_active = True
-                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
-                return self.get_portfolio()  # Recursive call will use simulation mode
+            self.simulation_mode_active = True
+            self.logger.warning(f"Switching to simulation mode due to API error: {response}")
+            return self.get_portfolio()
 
         except Exception as e:
             self.logger.error(f"Error getting portfolio: {str(e)}")
             self.simulation_mode_active = True
-            return self.get_portfolio()  # Retry in simulation mode
+            return self.get_portfolio()
 
-    def execute_trade(self, symbol: str, side: str, quantity: float, price: Optional[float] = None) -> Dict[str, Any]:
-        """Execute a trade (buy/sell)"""
+    def _make_request(self, method: str, endpoint: str, data: Dict = None) -> Dict[str, Any]:
+        """Make an authenticated request to the Kraken API"""
         if not self.real_mode or self.simulation_mode_active:
-            # Simulate trade execution
-            current_time = int(time.time() * 1000)
-            return {
-                "status": "success",
-                "order_id": f"sim-{current_time}",
-                "symbol": symbol,
-                "side": side,
-                "quantity": quantity,
-                "price": price or self.get_ticker(symbol)["price"],
-                "timestamp": current_time,
-                "simulation": True
-            }
-
-        try:
-            if self.exchange == "kucoin":
-                endpoint = "/api/v1/orders"
-                params = {
-                    "clientOid": str(int(time.time() * 1000)),
-                    "side": side,
-                    "symbol": symbol,
-                    "type": "market" if price is None else "limit",
-                    "size": str(quantity)
-                }
-                if price is not None:
-                    params["price"] = str(price)
-
-                response = self._make_request("POST", endpoint, params)
-
-                if response and "data" in response:
-                    return {
-                        "status": "success",
-                        "order_id": response["data"]["orderId"],
-                        "symbol": symbol,
-                        "side": side,
-                        "quantity": quantity,
-                        "price": price,
-                        "timestamp": int(time.time() * 1000)
-                    }
-
-                self.simulation_mode_active = True
-                self.logger.warning(f"Switching to simulation mode due to API error: {response}")
-                return self.execute_trade(symbol, side, quantity, price)
-
-        except Exception as e:
-            self.logger.error(f"Error executing trade: {str(e)}")
-            self.simulation_mode_active = True
-            return self.execute_trade(symbol, side, quantity, price)
-
-    def _make_request(self, method: str, endpoint: str, params: Dict = None) -> Dict[str, Any]:
-        """Make an authenticated request to the exchange API"""
-        if not self.real_mode or self.simulation_mode_active:
-            return {"status": "ok", "data": {}}
+            return {"result": {}}
 
         try:
             url = f"{self.base_url}{endpoint}"
-            timestamp = str(int(time.time() * 1000))
 
-            # Build signature for KuCoin
-            str_to_sign = f"{timestamp}{method}{endpoint}"
-            if params:
-                str_to_sign += json.dumps(params)
+            if endpoint.startswith("/0/private/"):
+                if data is None:
+                    data = {}
 
-            signature = base64.b64encode(
-                hmac.new(
-                    self.api_secret.encode('utf-8'),
-                    str_to_sign.encode('utf-8'),
-                    hashlib.sha256
-                ).digest()
-            ).decode('utf-8')
+                nonce = str(int(time.time() * 1000))
+                data["nonce"] = nonce
 
-            # KC-API-PASSPHRASE is also signed in v2
-            passphrase = base64.b64encode(
-                hmac.new(
-                    self.api_secret.encode('utf-8'),
-                    self.api_passphrase.encode('utf-8'),
-                    hashlib.sha256
-                ).digest()
-            ).decode('utf-8')
+                # Create signature
+                postdata = urllib.parse.urlencode(data)
+                encoded = (str(data["nonce"]) + postdata).encode()
+                message = endpoint.encode() + hashlib.sha256(encoded).digest()
 
-            headers = {
-                "KC-API-KEY": self.api_key,
-                "KC-API-SIGN": signature,
-                "KC-API-TIMESTAMP": timestamp,
-                "KC-API-PASSPHRASE": passphrase,
-                "KC-API-KEY-VERSION": "2",
-                "Content-Type": "application/json"
-            }
+                signature = hmac.new(
+                    base64.b64decode(self.api_secret),
+                    message,
+                    hashlib.sha512
+                ).hexdigest()
 
-            if method == "GET":
-                response = requests.get(url, headers=headers)
+                headers = {
+                    "API-Key": self.api_key,
+                    "API-Sign": signature
+                }
+
+                response = requests.post(url, headers=headers, data=data)
             else:
-                response = requests.post(url, headers=headers, json=params or {})
+                response = requests.get(url)
 
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                if "error" in result and result["error"]:
+                    raise ValueError(f"Kraken API error: {result['error']}")
+                return result
             else:
                 self.logger.error(f"API request failed: {response.text}")
                 self.simulation_mode_active = True
@@ -263,13 +210,34 @@ class MarketAPI:
             self.simulation_mode_active = True
             raise
 
+    def _convert_to_kraken_symbol(self, symbol: str) -> str:
+        """Convert standard symbol format to Kraken format"""
+        # Example: BTC-USDT -> XBTUSDT
+        base, quote = symbol.split("-")
+        conversions = {
+            "BTC": "XBT",
+            "USDT": "USD"  # Kraken uses USD for USDT
+        }
+        base = conversions.get(base, base)
+        quote = conversions.get(quote, quote)
+        return f"{base}{quote}"
+
+    def _convert_from_kraken_asset(self, asset: str) -> str:
+        """Convert Kraken asset code to standard format"""
+        # Example: XXBT -> BTC
+        conversions = {
+            "XXBT": "BTC",
+            "XETH": "ETH",
+            "ZUSD": "USDT"  # Kraken uses USD, we convert to USDT
+        }
+        return conversions.get(asset, asset.lstrip("X").lstrip("Z"))
 
 class MultiExchangeAPI:
     def __init__(self, real_mode: bool = False):
         self.real_mode = real_mode
         try:
-            self.kucoin = MarketAPI(exchange="kucoin", real_mode=real_mode)
-            self.exchanges = {"kucoin": self.kucoin}
+            self.kraken = MarketAPI(exchange="kraken", real_mode=real_mode)
+            self.exchanges = {"kraken": self.kraken}
             logger.info(f"MultiExchangeAPI initialized in {'real' if real_mode else 'simulation'} mode")
         except Exception as e:
             logger.error(f"Error initializing exchanges: {str(e)}")
@@ -285,9 +253,9 @@ class MultiExchangeAPI:
                 "timestamp": int(time.time() * 1000)
             }
 
-        # For now, just use KuCoin status
-        if "kucoin" in self.exchanges:
-            return self.kucoin.get_system_status()
+        # Use Kraken status
+        if "kraken" in self.exchanges:
+            return self.kraken.get_system_status()
 
         return {
             "trading_mode": "simulation",
@@ -334,9 +302,9 @@ class MultiExchangeAPI:
     def get_portfolio(self) -> Dict[str, Any]:
         """Get portfolio data from all exchanges"""
         try:
-            # For now, just use KuCoin as primary exchange
-            if "kucoin" in self.exchanges:
-                return self.kucoin.get_portfolio()
+            # Just use Kraken as primary exchange
+            if "kraken" in self.exchanges:
+                return self.kraken.get_portfolio()
             else:
                 return {
                     "total_value": 10000.0,
@@ -353,12 +321,9 @@ class MultiExchangeAPI:
             }
 
     def get_active_trades(self) -> List[Dict[str, Any]]:
-        #  This method requires significant adaptation.  The original relies on exchange.get_open_orders(),
-        # which is not present in the new MarketAPI class.  Placeholder for future implementation.
+        # Placeholder for future implementation
         return []
 
     def close_trade(self, trade_id: str) -> Dict[str, Any]:
-        # This method also requires significant adaptation to work with the new MarketAPI class.
-        # It depends on get_active_trades and exchange.cancel_order(), neither of which are directly
-        # compatible with the revised structure.  Placeholder for future implementation.
+        # Placeholder for future implementation
         return {"success": False, "message": "close_trade not implemented"}
