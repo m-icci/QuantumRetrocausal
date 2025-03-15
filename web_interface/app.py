@@ -39,6 +39,27 @@ def index():
 def healthcheck():
     return jsonify({"status": "ok"}), 200
 
+@app.route('/api/system_status')
+def system_status():
+    """Get detailed system status including trading mode and any errors"""
+    try:
+        if not market_api:
+            return jsonify({
+                "trading_mode": "simulation",
+                "error": "Trading system not initialized",
+                "details": "System components failed to initialize"
+            })
+
+        status = market_api.get_system_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting system status: {str(e)}")
+        return jsonify({
+            "trading_mode": "simulation",
+            "error": str(e),
+            "details": "Error checking system status"
+        })
+
 @app.route('/api/dashboard_data')
 def dashboard_data():
     try:
@@ -51,7 +72,9 @@ def dashboard_data():
                 'quantum_coherence': 0.98,
                 'current_price': 50000,
                 'cgr_points': [],
-                'active_trades': []
+                'active_trades': [],
+                'trading_mode': 'simulation',
+                'status_message': 'Trading components not initialized'
             })
 
         # Get market data
@@ -59,6 +82,9 @@ def dashboard_data():
 
         # Default BTC price if no data
         btc_price = market_data.get('BTC-USDT', {}).get('price', 50000)
+
+        # Get system status
+        system_status = market_api.get_system_status()
 
         # Perform quantum analysis
         quantum_metrics = quantum_analyzer.analyze(market_data)
@@ -80,11 +106,18 @@ def dashboard_data():
             'quantum_coherence': quantum_metrics.get('coherence', 0.98),
             'current_price': btc_price,
             'cgr_points': cgr_patterns.get('points', []),
-            'active_trades': active_trades
+            'active_trades': active_trades,
+            'trading_mode': system_status.get('trading_mode', 'simulation'),
+            'status_message': system_status.get('status_message', ''),
+            'error_details': system_status.get('error_details', '')
         })
     except Exception as e:
         logger.error(f"Error getting dashboard data: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'trading_mode': 'simulation',
+            'status_message': 'Error occurred while fetching data'
+        }), 500
 
 @app.route('/api/close_trade', methods=['POST'])
 def close_trade():

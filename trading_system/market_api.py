@@ -17,6 +17,8 @@ class MarketAPI:
         self.real_mode = real_mode
         self.logger = logging.getLogger("market_api")
         self.simulation_mode_active = False
+        self.last_error = None
+        self.status_message = "Initializing..."
 
         # Configure exchange API settings
         if self.exchange == "kucoin":
@@ -26,10 +28,39 @@ class MarketAPI:
             self.api_passphrase = os.environ.get("KUCOIN_API_PASSPHRASE")
 
             if real_mode and not all([self.api_key, self.api_secret, self.api_passphrase]):
-                self.logger.warning("Missing KuCoin API credentials, falling back to simulation mode")
                 self.simulation_mode_active = True
+                self.last_error = "Missing API credentials"
+                self.status_message = "Missing KuCoin API credentials"
+                self.logger.warning(self.status_message)
+            else:
+                # Test API connection
+                self._test_api_connection()
 
-            self.logger.info(f"Initialized KuCoin API in {'real' if real_mode and not self.simulation_mode_active else 'simulation'} mode")
+    def _test_api_connection(self):
+        """Test API connection and set appropriate status"""
+        try:
+            response = self._make_request("GET", "/api/v1/timestamp")
+            if response and 'data' in response:
+                self.status_message = "Connected to KuCoin API"
+                self.simulation_mode_active = False
+                self.last_error = None
+            else:
+                raise ValueError("Invalid API response")
+        except Exception as e:
+            self.simulation_mode_active = True
+            self.last_error = str(e)
+            self.status_message = "Failed to connect to KuCoin API"
+            self.logger.error(f"API connection test failed: {str(e)}")
+
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get detailed system status"""
+        return {
+            "trading_mode": "simulation" if self.simulation_mode_active else "real",
+            "status_message": self.status_message,
+            "error_details": self.last_error,
+            "exchange": self.exchange,
+            "timestamp": int(time.time() * 1000)
+        }
 
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """Get current ticker data for a symbol"""
@@ -232,6 +263,7 @@ class MarketAPI:
             self.simulation_mode_active = True
             raise
 
+
 class MultiExchangeAPI:
     def __init__(self, real_mode: bool = False):
         self.real_mode = real_mode
@@ -242,6 +274,27 @@ class MultiExchangeAPI:
         except Exception as e:
             logger.error(f"Error initializing exchanges: {str(e)}")
             self.exchanges = {}
+
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get system status from all exchanges"""
+        if not self.exchanges:
+            return {
+                "trading_mode": "simulation",
+                "status_message": "No exchanges initialized",
+                "error_details": "Failed to initialize exchange connections",
+                "timestamp": int(time.time() * 1000)
+            }
+
+        # For now, just use KuCoin status
+        if "kucoin" in self.exchanges:
+            return self.kucoin.get_system_status()
+
+        return {
+            "trading_mode": "simulation",
+            "status_message": "No active exchanges",
+            "error_details": None,
+            "timestamp": int(time.time() * 1000)
+        }
 
     def get_market_data(self) -> Dict[str, Any]:
         """Get market data from all configured exchanges"""

@@ -54,10 +54,18 @@ function initializeCharts() {
 
 // Update dashboard with new data
 function updateDashboard(data) {
-    // Update mode badge
+    // Update mode badge and status message
     const modeBadge = document.getElementById('mode-badge');
-    modeBadge.textContent = data.simulation_mode ? 'Simulation Mode' : 'Real Mode';
-    modeBadge.className = `badge ${data.simulation_mode ? 'bg-warning' : 'bg-success'}`;
+    const isSimulation = data.trading_mode === 'simulation';
+    modeBadge.textContent = `${data.trading_mode.toUpperCase()} MODE`;
+    modeBadge.className = `badge ${isSimulation ? 'bg-warning' : 'bg-success'}`;
+
+    // Add tooltip with status message if there's an error
+    if (data.error_details) {
+        modeBadge.title = `${data.status_message}: ${data.error_details}`;
+        // Add warning icon if in simulation mode due to error
+        modeBadge.innerHTML += ' <i data-feather="alert-triangle"></i>';
+    }
 
     // Update portfolio metrics
     document.getElementById('total-value').textContent = `$${data.total_value.toFixed(2)}`;
@@ -107,6 +115,8 @@ function updateDashboard(data) {
         `;
         tradesTable.appendChild(row);
     });
+    // Update icons
+    feather.replace();
 }
 
 // Close trade function
