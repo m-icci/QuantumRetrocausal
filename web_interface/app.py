@@ -19,7 +19,7 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
 # Initialize trading components
 try:
-    market_api = MultiExchangeAPI()
+    market_api = MultiExchangeAPI(real_mode=True)  # Initialize in real mode
     quantum_analyzer = QuantumAnalyzer()
     cgr_analyzer = CGRAnalyzer()
     risk_manager = RiskManager()

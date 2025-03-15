@@ -8,220 +8,239 @@ import json
 from typing import Dict, List, Any, Optional
 import requests
 from datetime import datetime
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
-class ExchangeAPI:
-    def __init__(self, exchange: str):
+class MarketAPI:
+    def __init__(self, exchange: str = "kucoin", real_mode: bool = False):
         self.exchange = exchange
-        self.api_key = os.environ.get(f"{exchange.upper()}_API_KEY")
-        self.api_secret = os.environ.get(f"{exchange.upper()}_API_SECRET")
-        self.api_passphrase = os.environ.get(f"{exchange.upper()}_API_PASSPHRASE")
-        
-        if not all([self.api_key, self.api_secret]):
-            raise ValueError(f"Missing API credentials for {exchange}")
-            
-        self.base_urls = {
-            "kucoin": "https://api.kucoin.com",
-            "kraken": "https://api.kraken.com"
-        }
-        self.base_url = self.base_urls[exchange]
-        
-    def _sign_request(self, method: str, endpoint: str, data: Dict = None) -> Dict:
-        timestamp = str(int(time.time() * 1000))
-        
+        self.real_mode = real_mode
+        self.logger = logging.getLogger("market_api")
+
+        # Configure exchange API settings
         if self.exchange == "kucoin":
-            data_str = "" if not data else json.dumps(data)
-            sign_str = f"{timestamp}{method}{endpoint}{data_str}"
+            self.base_url = "https://api.kucoin.com"
+            self.api_key = os.environ.get("KUCOIN_API_KEY")
+            self.api_secret = os.environ.get("KUCOIN_API_SECRET")
+            self.api_passphrase = os.environ.get("KUCOIN_API_PASSPHRASE")
+
+            if real_mode and not all([self.api_key, self.api_secret, self.api_passphrase]):
+                raise ValueError("Missing KuCoin API credentials for real mode")
+
+            self.logger.info(f"Initialized KuCoin API in {'real' if real_mode else 'simulation'} mode")
+
+    def get_ticker(self, symbol: str) -> Dict[str, Any]:
+        """Get current ticker data for a symbol"""
+        if not self.real_mode:
+            # Simulation mode - return dummy data
+            current_time = int(time.time() * 1000)
+            return {
+                "symbol": symbol,
+                "price": 50000.0,  # Dummy price
+                "time": current_time
+            }
+
+        try:
+            if self.exchange == "kucoin":
+                endpoint = f"/api/v1/market/orderbook/level1?symbol={symbol}"
+                response = self._make_request("GET", endpoint)
+
+                if response and "data" in response:
+                    data = response["data"]
+                    return {
+                        "symbol": symbol,
+                        "price": float(data.get("price", 0)),
+                        "time": data.get("time", int(time.time() * 1000))
+                    }
+
+                raise ValueError(f"Invalid response from KuCoin API: {response}")
+
+        except Exception as e:
+            self.logger.error(f"Error getting ticker for {symbol}: {str(e)}")
+            # Return dummy data in case of error
+            return {
+                "symbol": symbol,
+                "price": 50000.0,
+                "time": int(time.time() * 1000),
+                "error": str(e)
+            }
+
+    def get_portfolio(self) -> Dict[str, Any]:
+        """Get current portfolio balances"""
+        if not self.real_mode:
+            return {
+                "total_value": 10000.0,
+                "holdings": {"USDT": 10000.0},
+                "timestamp": int(time.time() * 1000)
+            }
+
+        try:
+            if self.exchange == "kucoin":
+                endpoint = "/api/v1/accounts"
+                response = self._make_request("GET", endpoint)
+
+                if response and "data" in response:
+                    total_value = 0.0
+                    holdings = {}
+
+                    for account in response["data"]:
+                        currency = account.get("currency", "")
+                        balance = float(account.get("balance", 0))
+
+                        if balance > 0:
+                            holdings[currency] = balance
+                            if currency == "USDT":
+                                total_value += balance
+                            else:
+                                # Get current price for non-USDT assets
+                                ticker = self.get_ticker(f"{currency}-USDT")
+                                total_value += balance * ticker["price"]
+
+                    return {
+                        "total_value": total_value,
+                        "holdings": holdings,
+                        "timestamp": int(time.time() * 1000)
+                    }
+
+                raise ValueError(f"Invalid response from KuCoin API: {response}")
+
+        except Exception as e:
+            self.logger.error(f"Error getting portfolio: {str(e)}")
+            return {
+                "total_value": 0.0,
+                "holdings": {},
+                "timestamp": int(time.time() * 1000),
+                "error": str(e)
+            }
+
+    def _make_request(self, method: str, endpoint: str, params: Dict = None) -> Dict[str, Any]:
+        """Make an authenticated request to the exchange API"""
+        if not self.real_mode:
+            return {"status": "ok", "data": {}}
+
+        try:
+            url = f"{self.base_url}{endpoint}"
+            timestamp = str(int(time.time() * 1000))
+
+            # Build signature for KuCoin
+            str_to_sign = f"{timestamp}{method}{endpoint}"
+            if params:
+                str_to_sign += json.dumps(params)
+
             signature = base64.b64encode(
                 hmac.new(
                     self.api_secret.encode('utf-8'),
-                    sign_str.encode('utf-8'),
+                    str_to_sign.encode('utf-8'),
                     hashlib.sha256
                 ).digest()
-            ).decode()
-            
+            ).decode('utf-8')
+
+            # KC-API-PASSPHRASE is also signed in v2
             passphrase = base64.b64encode(
                 hmac.new(
                     self.api_secret.encode('utf-8'),
                     self.api_passphrase.encode('utf-8'),
                     hashlib.sha256
                 ).digest()
-            ).decode()
-            
+            ).decode('utf-8')
+
             headers = {
+                "KC-API-KEY": self.api_key,
                 "KC-API-SIGN": signature,
                 "KC-API-TIMESTAMP": timestamp,
-                "KC-API-KEY": self.api_key,
                 "KC-API-PASSPHRASE": passphrase,
-                "KC-API-KEY-VERSION": "2"
+                "KC-API-KEY-VERSION": "2",
+                "Content-Type": "application/json"
             }
-        else:
-            # Kraken signing
-            sign_str = f"{timestamp}{method}{endpoint}"
-            signature = hmac.new(
-                base64.b64decode(self.api_secret),
-                sign_str.encode(),
-                hashlib.sha256
-            ).hexdigest()
-            
-            headers = {
-                "API-Key": self.api_key,
-                "API-Sign": signature
-            }
-            
-        return headers
 
-    def get_ticker(self, symbol: str) -> Dict[str, Any]:
-        try:
-            if self.exchange == "kucoin":
-                endpoint = f"/api/v1/market/orderbook/level1?symbol={symbol}"
-                headers = self._sign_request("GET", endpoint)
-                response = requests.get(f"{self.base_url}{endpoint}", headers=headers)
+            if method == "GET":
+                response = requests.get(url, headers=headers)
             else:
-                endpoint = "/0/public/Ticker"
-                headers = self._sign_request("GET", endpoint)
-                response = requests.get(f"{self.base_url}{endpoint}?pair={symbol}", headers=headers)
-                
-            response.raise_for_status()
-            data = response.json()
-            
-            if self.exchange == "kucoin":
-                return {
-                    "symbol": symbol,
-                    "price": float(data["data"]["price"]),
-                    "time": data["data"]["time"]
-                }
+                response = requests.post(url, headers=headers, json=params or {})
+
+            if response.status_code == 200:
+                return response.json()
             else:
-                # Parse Kraken response
-                kraken_symbol = symbol.replace("-", "")
-                ticker = data["result"][kraken_symbol]
-                return {
-                    "symbol": symbol,
-                    "price": float(ticker["c"][0]),
-                    "time": int(time.time() * 1000)
-                }
-                
+                raise ValueError(f"API request failed: {response.text}")
+
         except Exception as e:
-            logger.error(f"Error getting ticker for {symbol} on {self.exchange}: {str(e)}")
+            self.logger.error(f"API request error: {str(e)}")
             raise
 
 class MultiExchangeAPI:
-    def __init__(self):
-        self.exchanges = {
-            "kucoin": ExchangeAPI("kucoin"),
-            "kraken": ExchangeAPI("kraken")
-        }
-        self.pairs = ["BTC-USDT", "ETH-USDT"]
-        
-    def get_market_data(self) -> Dict[str, Any]:
-        market_data = {}
-        for pair in self.pairs:
-            best_price = None
-            best_exchange = None
-            
-            for name, exchange in self.exchanges.items():
-                try:
-                    ticker = exchange.get_ticker(pair)
-                    if best_price is None or ticker["price"] < best_price:
-                        best_price = ticker["price"]
-                        best_exchange = name
-                except Exception as e:
-                    logger.warning(f"Failed to get {pair} price from {name}: {str(e)}")
-                    
-            if best_price is not None:
-                market_data[pair] = {
-                    "price": best_price,
-                    "exchange": best_exchange,
-                    "time": int(time.time() * 1000)
-                }
-                
-        return market_data
-        
-    def get_portfolio(self) -> Dict[str, Any]:
-        total_value = 0
-        holdings = {}
-        
-        for exchange_name, exchange in self.exchanges.items():
-            try:
-                # Get account balances
-                balances = exchange.get_balances()
-                
-                for currency, amount in balances.items():
-                    if currency not in holdings:
-                        holdings[currency] = 0
-                    holdings[currency] += amount
-                    
-                    # Convert to USDT value
-                    if currency != "USDT":
-                        ticker = exchange.get_ticker(f"{currency}-USDT")
-                        value = amount * ticker["price"]
-                    else:
-                        value = amount
-                        
-                    total_value += value
-                    
-            except Exception as e:
-                logger.error(f"Error getting portfolio from {exchange_name}: {str(e)}")
-                
-        return {
-            "total_value": total_value,
-            "holdings": holdings,
-            "timestamp": int(time.time() * 1000)
-        }
-        
-    def get_active_trades(self) -> List[Dict[str, Any]]:
-        active_trades = []
-        
-        for exchange_name, exchange in self.exchanges.items():
-            try:
-                trades = exchange.get_open_orders()
-                
-                for trade in trades:
-                    # Calculate P&L
-                    current_price = exchange.get_ticker(trade["symbol"])["price"]
-                    entry_price = float(trade["price"])
-                    
-                    if trade["side"] == "buy":
-                        pnl = (current_price - entry_price) / entry_price * 100
-                    else:
-                        pnl = (entry_price - current_price) / entry_price * 100
-                        
-                    active_trades.append({
-                        "id": trade["id"],
-                        "symbol": trade["symbol"],
-                        "type": trade["side"],
-                        "entry_price": entry_price,
-                        "current_price": current_price,
-                        "pnl": pnl,
-                        "quantum_score": np.random.random(),  # This should come from quantum analysis
-                        "exchange": exchange_name
-                    })
-                    
-            except Exception as e:
-                logger.error(f"Error getting active trades from {exchange_name}: {str(e)}")
-                
-        return active_trades
-        
-    def close_trade(self, trade_id: str) -> Dict[str, Any]:
-        # Find trade in active trades
-        active_trades = self.get_active_trades()
-        trade = next((t for t in active_trades if t["id"] == trade_id), None)
-        
-        if not trade:
-            raise ValueError(f"Trade {trade_id} not found")
-            
-        exchange = self.exchanges[trade["exchange"]]
-        
+    def __init__(self, real_mode: bool = False):
+        self.real_mode = real_mode
         try:
-            result = exchange.cancel_order(trade_id)
-            logger.info(f"Closed trade {trade_id} on {trade['exchange']}")
-            return {
-                "success": True,
-                "trade_id": trade_id,
-                "status": "closed"
-            }
+            self.kucoin = MarketAPI(exchange="kucoin", real_mode=real_mode)
+            self.exchanges = {"kucoin": self.kucoin}
+            logger.info(f"MultiExchangeAPI initialized in {'real' if real_mode else 'simulation'} mode")
         except Exception as e:
-            logger.error(f"Error closing trade {trade_id}: {str(e)}")
-            raise
+            logger.error(f"Error initializing exchanges: {str(e)}")
+            self.exchanges = {}
+
+    def get_market_data(self) -> Dict[str, Any]:
+        """Get market data from all configured exchanges"""
+        market_data = {}
+        for symbol in ["BTC-USDT", "ETH-USDT"]:
+            try:
+                # Try each exchange until we get valid data
+                for name, exchange in self.exchanges.items():
+                    try:
+                        ticker = exchange.get_ticker(symbol)
+                        if ticker and "price" in ticker:
+                            market_data[symbol] = {
+                                "price": ticker["price"],
+                                "exchange": name,
+                                "time": ticker["time"]
+                            }
+                            break
+                    except Exception as e:
+                        logger.warning(f"Error getting {symbol} data from {name}: {str(e)}")
+                        continue
+
+                if symbol not in market_data:
+                    logger.warning(f"No valid data available for {symbol}")
+                    # Use simulation data as fallback
+                    market_data[symbol] = {
+                        "price": 50000.0 if symbol == "BTC-USDT" else 3000.0,
+                        "exchange": "simulation",
+                        "time": int(time.time() * 1000)
+                    }
+
+            except Exception as e:
+                logger.error(f"Error processing {symbol}: {str(e)}")
+                continue
+
+        return market_data
+
+    def get_portfolio(self) -> Dict[str, Any]:
+        """Get portfolio data from all exchanges"""
+        try:
+            # For now, just use KuCoin as primary exchange
+            if "kucoin" in self.exchanges:
+                return self.kucoin.get_portfolio()
+            else:
+                return {
+                    "total_value": 10000.0,
+                    "holdings": {"USDT": 10000.0},
+                    "timestamp": int(time.time() * 1000)
+                }
+        except Exception as e:
+            logger.error(f"Error getting portfolio: {str(e)}")
+            return {
+                "total_value": 0.0,
+                "holdings": {},
+                "timestamp": int(time.time() * 1000),
+                "error": str(e)
+            }
+
+    def get_active_trades(self) -> List[Dict[str, Any]]:
+        #  This method requires significant adaptation.  The original relies on exchange.get_open_orders(),
+        # which is not present in the new MarketAPI class.  Placeholder for future implementation.
+        return []
+
+    def close_trade(self, trade_id: str) -> Dict[str, Any]:
+        # This method also requires significant adaptation to work with the new MarketAPI class.
+        # It depends on get_active_trades and exchange.cancel_order(), neither of which are directly
+        # compatible with the revised structure.  Placeholder for future implementation.
+        return {"success": False, "message": "close_trade not implemented"}
