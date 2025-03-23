@@ -1,0 +1,46 @@
+[run]
+source = quantum_trading
+omit =
+    */tests/*
+    */site-packages/*
+    */__pycache__/*
+    */__init__.py
+    */setup.py
+    */conftest.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    def main\(\):
+
+[html]
+directory = coverage_html
+title = QUALIA Coverage Report 
+
+[coverage:run]
+branch = True
+source = quantum_trading
+
+[coverage:report]
+show_missing = True
+fail_under = 80
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @abstractmethod
+    @property
+    @classmethod
+    @staticmethod 

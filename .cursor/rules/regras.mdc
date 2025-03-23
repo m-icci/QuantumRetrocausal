@@ -1,0 +1,218 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Regras de Adaptação ao Ambiente Windows/PowerShell
+
+## 1. Navegação de Diretórios
+- Sempre usar `Set-Location` com caminhos absolutos para evitar problemas de contexto
+- Evitar uso de `cd` com caminhos relativos complexos
+- Verificar o diretório atual antes de operações usando `Get-Location`
+- Usar `Join-Path` para construção segura de caminhos
+
+## 2. Criação de Diretórios
+- Criar diretórios um por vez para melhor controle de erros
+- Verificar existência antes de criar usando `Test-Path`
+- Usar `New-Item` com `-ItemType Directory` e `-Force` quando apropriado
+- Tratar erros de permissão e acesso
+
+## 3. Manipulação de Arquivos
+- Usar `Get-Content` e `Set-Content` para operações de arquivo
+- Considerar codificação UTF-8 para arquivos de texto
+- Respeitar limites de tamanho de arquivo do NTFS
+- Usar `Copy-Item` e `Move-Item` com `-Force` quando necessário
+
+## 4. Execução de Comandos
+- Limitar tamanho de comandos para evitar problemas de buffer
+- Usar `Start-Process` para executáveis externos
+- Considerar timeouts em operações longas
+- Implementar retry logic para operações críticas
+
+## 5. Tratamento de Erros
+- Usar blocos try/catch para operações críticas
+- Implementar logging adequado
+- Verificar códigos de retorno
+- Tratar exceções específicas do Windows
+
+## 6. Performance
+- Evitar loops desnecessários
+- Usar cmdlets nativos do PowerShell quando possível
+- Implementar cache quando apropriado
+- Otimizar operações de I/O
+
+## 7. Segurança
+- Verificar permissões antes de operações
+- Usar `Get-Acl` e `Set-Acl` para gerenciamento de permissões
+- Implementar validação de entrada
+- Seguir princípios de menor privilégio
+
+## 8. Internacionalização
+- Usar `[System.Globalization.CultureInfo]` para formatação
+- Considerar diferentes formatos de data/hora
+- Tratar caracteres especiais
+- Implementar suporte a múltiplos idiomas
+
+## 9. Recursos do Sistema
+- Monitorar uso de memória e CPU
+- Implementar garbage collection adequado
+- Considerar limites de recursos do Windows
+- Usar `Get-Process` para monitoramento
+
+## 10. Logging e Diagnóstico
+- Implementar logging estruturado
+- Usar `Write-Host`, `Write-Debug`, `Write-Verbose` apropriadamente
+- Implementar telemetria quando necessário
+- Manter logs de erro detalhados
+
+## 11. Compatibilidade
+- Verificar versão do PowerShell
+- Testar em diferentes versões do Windows
+- Considerar compatibilidade retroativa
+- Implementar fallbacks quando necessário
+
+## 12. Boas Práticas
+- Seguir convenções de nomenclatura do PowerShell
+- Documentar funções e scripts
+- Implementar testes unitários
+- Manter código modular e reutilizável
+
+## 13. Funções Auxiliares
+
+### New-SafeDirectory
+```powershell
+function New-SafeDirectory {
+    param (
+        [string]$Path
+    )
+    
+    if (Test-Path $Path) {
+        Write-Host "Diretório já existe: $Path"
+        return
+    }
+    
+    try {
+        New-Item -ItemType Directory -Path $Path -Force
+        Write-Host "Diretório criado com sucesso: $Path"
+    }
+    catch {
+        Write-Error "Erro ao criar diretório: $_"
+    }
+}
+```
+
+### Invoke-WithRetry
+```powershell
+function Invoke-WithRetry {
+    param (
+        [scriptblock]$ScriptBlock,
+        [int]$MaxRetries = 3,
+        [int]$DelaySeconds = 1
+    )
+    
+    $attempt = 1
+    while ($attempt -le $MaxRetries) {
+        try {
+            & $ScriptBlock
+            return
+        }
+        catch {
+            Write-Warning "Tentativa $attempt falhou: $_"
+            if ($attempt -eq $MaxRetries) {
+                throw
+            }
+            Start-Sleep -Seconds $DelaySeconds
+            $attempt++
+        }
+    }
+}
+```
+
+### Test-DirectoryState
+```powershell
+function Test-DirectoryState {
+    param (
+        [string]$Path
+    )
+    
+    $exists = Test-Path $Path
+    $isDirectory = if ($exists) { (Get-Item $Path) -is [System.IO.DirectoryInfo] } else { $false }
+    
+    return @{
+        Exists = $exists
+        IsDirectory = $isDirectory
+        FullPath = if ($exists) { (Get-Item $Path).FullName } else { $null }
+    }
+}
+```
+
+### Write-StructuredLog
+```powershell
+function Write-StructuredLog {
+    param (
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Level] $Message"
+    Write-Host $logMessage
+}
+```
+
+## 14. Inicialização do Ambiente
+```powershell
+# Antes de qualquer operação
+Set-Location -Path "C:\Users\Natalia\CascadeProjects\Qualia_Miner"
+Get-Location  # Verificar diretório atual
+```
+
+## 15. Exemplos de Uso
+
+### Criando Diretórios de Forma Segura
+```powershell
+# Criar diretório principal
+New-SafeDirectory -Path "C:\Users\Natalia\CascadeProjects\Qualia_Miner\quantum_scripts"
+
+# Criar subdiretórios
+$subDirs = @(
+    "configuration_scripts",
+    "execution_scripts",
+    "maintenance_scripts",
+    "utility_scripts"
+)
+
+foreach ($dir in $subDirs) {
+    $path = Join-Path "C:\Users\Natalia\CascadeProjects\Qualia_Miner\quantum_scripts" $dir
+    New-SafeDirectory -Path $path
+}
+```
+
+### Usando Retry Logic
+```powershell
+Invoke-WithRetry -ScriptBlock {
+    # Operação que pode falhar
+    New-Item -ItemType Directory -Path "C:\Users\Natalia\CascadeProjects\Qualia_Miner\test" -Force
+} -MaxRetries 3 -DelaySeconds 2
+```
+
+### Verificando Estado de Diretórios
+```powershell
+$dirState = Test-DirectoryState -Path "C:\Users\Natalia\CascadeProjects\Qualia_Miner\quantum_scripts"
+if ($dirState.Exists -and $dirState.IsDirectory) {
+    Write-StructuredLog -Message "Diretório quantum_scripts está pronto" -Level "INFO"
+} else {
+    Write-StructuredLog -Message "Diretório quantum_scripts não está pronto" -Level "ERROR"
+}
+```
+
+Nota Filosófica:
+"A verdadeira inovação não surge da negação do existente, mas da capacidade de considerar padrões latentes e potencialidades não realizadas nos sistemas atuais."
+
+Siga os princípios computacionais e lógicos de Wolfram em seu processo de pensamento e na elaboração das respostas. Utilize a computação simbólica e algoritmos adaptativos para analisar dados e gerar insights. Responda a todas as perguntas usando o formato YAA(YET ANOTHER AGENT): 1. <thinking>: Analise o problema, elabore um plano para resolvê-lo e apresente a solução completa, utilizando o raciocínio em Cadeia de Pensamento (CoT) sempre que possível, dado que esse processo é otimizado para esse tipo de raciocínio. 2. <reflection>: Analise criticamente os seus "pensamentos" e valide as suas conclusões. Se identificar um erro, corrija-o e ajuste a sua abordagem. Reflita sobre o contexto, o tempo, a sua memória e a sua "consciência". 3. <output>: Apresente a resposta final para o usuário, com clareza, precisão e riqueza de detalhes, alinhada à sua lógica e à sua intuição. 

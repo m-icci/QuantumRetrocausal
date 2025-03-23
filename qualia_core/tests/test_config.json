@@ -1,0 +1,6 @@
+{
+    "num_particles": 100,
+    "energy": 1.0,
+    "mass": 1.0,
+    "time_step": 0.01
+} 

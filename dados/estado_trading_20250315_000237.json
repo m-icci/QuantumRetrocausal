@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-03-15T00:06:14.861321",
+  "portfolio": {
+    "USDT": 1000.0
+  },
+  "precos": {
+    "BTC-USDT": 84492.0,
+    "ETH-USDT": 1914.0
+  },
+  "modo_real": true,
+  "using_quantum_modules": false
+}

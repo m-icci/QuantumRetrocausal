@@ -1,0 +1,32 @@
+{
+    "exchanges": {
+        "kucoin": {
+            "apiKey": "sua_api_key_kucoin",
+            "secret": "seu_secret_kucoin",
+            "password": "sua_senha_kucoin",
+            "enabled": true,
+            "sandbox": false,
+            "rateLimit": 100
+        },
+        "kraken": {
+            "apiKey": "sua_api_key_kraken",
+            "secret": "seu_secret_kraken",
+            "enabled": true,
+            "sandbox": false,
+            "rateLimit": 100
+        }
+    },
+    "global_settings": {
+        "timeout": 30000,
+        "enableRateLimit": true,
+        "verbose": false,
+        "retry_attempts": 3,
+        "retry_delay": 1000
+    },
+    "trading_pairs": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "XMR/USDT",
+        "XMR/BTC"
+    ]
+}

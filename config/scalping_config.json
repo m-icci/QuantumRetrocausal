@@ -1,0 +1,63 @@
+{
+  "system": {
+    "mode": "simulated",
+    "data_dir": "./data",
+    "output_dir": "./output",
+    "logs_dir": "./logs",
+    "metrics_dir": "./metrics"
+  },
+  "trading": {
+    "symbol": "BTC/USDT",
+    "timeframe": "1m",
+    "initial_balance": 10000,
+    "exchanges": ["kucoin", "kraken"]
+  },
+  "risk": {
+    "max_position_size": 0.1,
+    "max_daily_loss": 0.02,
+    "max_drawdown": 0.05,
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.01
+  },
+  "scalping": {
+    "min_profit_threshold": 0.0005,
+    "max_loss_threshold": 0.0003,
+    "max_position_time": 300,
+    "min_volume_threshold": 1000,
+    "max_spread_threshold": 0.0002,
+    "exchange_fee": 0.0004,
+    "slippage": 0.0001,
+    "min_trade_size": 0.001
+  },
+  "qualia": {
+    "lstm_model_path": "models/lstm_predictor.h5",
+    "quantum_layers": 8,
+    "adaptive_threshold": 0.7,
+    "max_exposure": 0.3,
+    "enable_helix": true
+  },
+  "helix": {
+    "dimensions": 64,
+    "num_qubits": 8,
+    "phi": 0.618,
+    "temperature": 0.2,
+    "batch_size": 256,
+    "tau": 7
+  },
+  "backtest": {
+    "cycles": 30,
+    "window_size": 50,
+    "pair": "BTC/USDT",
+    "exchanges": ["kraken", "kucoin"],
+    "start_date": "2023-02-01",
+    "end_date": "2023-03-01",
+    "data_files": {
+      "kraken": "KRAKEN_BTCUSDT.csv",
+      "kucoin": "KUCOIN_BTCUSDT.csv"
+    }
+  },
+  "field_dimensions": 8,
+  "coherence_threshold": 0.45,
+  "resonance_threshold": 0.4,
+  "buffer_size": 1000
+} 

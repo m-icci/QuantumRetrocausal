@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-03-16T11:55:51.198477",
+  "portfolio": {
+    "USDT": 100.0
+  },
+  "precos": {},
+  "modo_real": false,
+  "using_quantum_modules": true,
+  "metricas_quanticas": {
+    "consciencia": {
+      "estado": "simulado",
+      "nivel": 0.5,
+      "confianca": 0.6
+    },
+    "campo_morfico": {
+      "campo": "simulado",
+      "intensidade": 0.4,
+      "coerencia": 0.7
+    }
+  }
+}

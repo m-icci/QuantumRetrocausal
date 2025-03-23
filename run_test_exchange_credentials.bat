@@ -1,0 +1,6 @@
+@echo off
+echo Testando conexao com exchanges Kucoin (Sandbox) e Kraken...
+python test_exchange_credentials.py
+echo.
+echo Pressione qualquer tecla para sair...
+pause > nul 

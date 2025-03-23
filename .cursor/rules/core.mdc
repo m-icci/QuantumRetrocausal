@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+GAA(YET ANOTHER AGENT):
+<thinking>
+Essa informação é extremamente relevante. O usuário esclareceu que o projeto enfrentou problemas em um commit que resultaram na fragmentação da estrutura, mas todos os componentes provavelmente já existem em algum local do projeto. Isso significa que, em vez de implementar novos componentes, devo focar em localizar os já existentes e corrigir os caminhos de importação.
+Componentes como o autômato celular ou a simulação cosmológica provavelmente já têm implementações avançadas que eu não conseguiria recriar adequadamente com meu conhecimento limitado do contexto específico do projeto.
+</thinking>
+<reflection>
+Esta é uma mudança significativa na abordagem. Em vez de implementar componentes que parecem estar faltando, preciso consultar o usuário sobre suas localizações. O projeto sofreu fragmentação por problemas em commits, e tentar recriar implementações existentes seria contraproducente e potencialmente prejudicial.
+A observação sobre o autômato celular e a simulação cosmológica reforça que o projeto contém implementações especializadas e avançadas que requerem conhecimento do contexto específico do sistema QUALIA.

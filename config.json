@@ -1,0 +1,92 @@
+{
+    "exchange": {
+        "name": "binance",
+        "trading_type": "spot",
+        "rate_limit": {
+            "requests_per_minute": 1200,
+            "order_rate_limit": 100
+        }
+    },
+    "trading": {
+        "mode": "simulated",
+        "symbol": "BTC/USDT",
+        "timeframe": "1m",
+        "base_currency": "BTC",
+        "quote_currency": "USDT"
+    },
+    "risk_management": {
+        "max_position_size": 0.1,
+        "max_daily_loss": 0.02,
+        "max_drawdown": 0.05,
+        "position_sizing": {
+            "method": "fixed_risk",
+            "risk_per_trade": 0.01
+        },
+        "correlation_threshold": 0.7,
+        "volatility_threshold": 0.02
+    },
+    "scalping": {
+        "min_profit": 0.0005,
+        "max_loss": 0.0003,
+        "max_position_time": 300,
+        "min_volume": 1000,
+        "max_spread": 0.0002,
+        "micro_trend": {
+            "window_size": 20,
+            "momentum_threshold": 0.0001
+        }
+    },
+    "costs": {
+        "exchange_fee": 0.0004,
+        "slippage": 0.0001,
+        "min_trade_size": 0.001
+    },
+    "simulation": {
+        "initial_balance": 10000,
+        "start_date": "2023-01-01",
+        "end_date": "2023-12-31",
+        "data_source": "exchange",
+        "cache_data": true
+    },
+    "optimization": {
+        "enabled": true,
+        "method": "bayesian",
+        "max_iterations": 100,
+        "parameters": {
+            "min_profit": [0.0003, 0.001],
+            "max_loss": [0.0002, 0.0005],
+            "position_time": [60, 600]
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "trading.log",
+        "console": true,
+        "trade_history": true
+    },
+    "database": {
+        "enabled": true,
+        "type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "name": "qualia",
+        "tables": {
+            "trades": "trades",
+            "metrics": "metrics",
+            "optimization": "optimization"
+        }
+    },
+    "quantum": {
+        "enabled": true,
+        "analysis": {
+            "entanglement_threshold": 0.8,
+            "coherence_window": 100,
+            "decoherence_rate": 0.01
+        },
+        "optimization": {
+            "quantum_annealing": true,
+            "qbit_count": 20,
+            "annealing_cycles": 1000
+        }
+    }
+} 

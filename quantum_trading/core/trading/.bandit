@@ -1,0 +1,11 @@
+[bandit]
+targets: quantum_trading
+exclude: /tests
+recursive: true
+aggregate: file
+number: 3
+level: HIGH
+confidence: HIGH
+format: txt
+output: bandit_results.txt
+verbose: true 

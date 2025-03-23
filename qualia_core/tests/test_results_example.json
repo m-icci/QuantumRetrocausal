@@ -1,0 +1,12 @@
+{
+    "num_particles": 1000,
+    "mean_energy": 1.95,
+    "mean_entropy": 0.67,
+    "std_energy": 0.15,
+    "std_entropy": 0.08,
+    "min_energy": 1.65,
+    "max_energy": 2.25,
+    "min_entropy": 0.50,
+    "max_entropy": 0.81,
+    "correlation": 0.85
+} 

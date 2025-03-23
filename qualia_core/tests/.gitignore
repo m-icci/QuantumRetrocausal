@@ -1,0 +1,28 @@
+# Diretórios de resultados
+test_results/
+
+# Arquivos de configuração personalizados
+test_config_*.json
+
+# Arquivos de log
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Arquivos de cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos de ambiente virtual
+venv/
+env/
+.env/
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo 

@@ -1,0 +1,53 @@
+Relatório de Testes de Partículas de Hawking
+==================================================
+
+Data: 2024-03-20 15:30:45
+
+Configuração:
+--------------------
+num_particles: 1000
+energy: 2.0
+mass: 1.5
+time_step: 0.005
+
+Resultados:
+--------------------
+num_particles: 1000
+mean_energy: 1.95
+mean_entropy: 0.67
+std_energy: 0.15
+std_entropy: 0.08
+min_energy: 1.65
+max_energy: 2.25
+min_entropy: 0.50
+max_entropy: 0.81
+correlation: 0.85
+
+Análise:
+--------------------
+1. Distribuição de Energia:
+   - A energia média (1.95) está próxima do valor configurado (2.0)
+   - O desvio padrão (0.15) indica uma boa estabilidade
+   - O intervalo [1.65, 2.25] mostra uma distribuição simétrica
+
+2. Distribuição de Entropia:
+   - A entropia média (0.67) está dentro do esperado
+   - O desvio padrão (0.08) indica baixa variabilidade
+   - O intervalo [0.50, 0.81] sugere uma distribuição normal
+
+3. Correlação:
+   - A correlação de 0.85 entre energia e entropia é forte
+   - Isso sugere uma relação linear bem definida
+
+Conclusões:
+--------------------
+1. O sistema está funcionando conforme esperado
+2. A propagação das partículas está estável
+3. A relação energia-entropia está bem definida
+4. Os resultados são consistentes com a teoria
+
+Recomendações:
+--------------------
+1. Manter os parâmetros atuais para próximos testes
+2. Considerar aumentar o número de partículas para melhorar a precisão
+3. Investigar a possibilidade de otimizar o passo de tempo 

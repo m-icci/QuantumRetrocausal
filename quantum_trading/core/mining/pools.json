@@ -1,0 +1,44 @@
+{
+    "pools": [
+        {
+            "name": "MoneroOcean",
+            "url": "gulf.moneroocean.stream",
+            "port": 10128,
+            "region": "global",
+            "min_payout": 0.1,
+            "fee": 0.001
+        },
+        {
+            "name": "SupportXMR",
+            "url": "pool.supportxmr.com",
+            "port": 3333,
+            "region": "global",
+            "min_payout": 0.1,
+            "fee": 0.001
+        },
+        {
+            "name": "XMRPool",
+            "url": "xmrpool.eu",
+            "port": 3333,
+            "region": "eu",
+            "min_payout": 0.1,
+            "fee": 0.001
+        },
+        {
+            "name": "MineXMR",
+            "url": "minexmr.com",
+            "port": 3333,
+            "region": "global",
+            "min_payout": 0.1,
+            "fee": 0.001
+        },
+        {
+            "name": "Nanopool",
+            "url": "xmr.nanopool.org",
+            "port": 14433,
+            "region": "global",
+            "min_payout": 0.1,
+            "fee": 0.001
+        }
+    ]
+} 

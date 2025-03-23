@@ -1,0 +1,379 @@
+{
+  "config": {
+    "min_spread": 0.0005,
+    "base_threshold": 0.0005,
+    "min_volume_24h": 5000,
+    "min_transfer": 10,
+    "rebalance_threshold": 0.1,
+    "max_position_pct": 0.25,
+    "history_window": 24,
+    "time_segments": 24,
+    "execution_timeout": 30,
+    "cycle_interval": 30,
+    "state_save_interval": 300,
+    "exchanges": [
+      "kucoin",
+      "kraken"
+    ],
+    "pairs": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "XMR/USDT",
+      "SOL/USDT",
+      "AVAX/USDT"
+    ],
+    "advanced_config": {
+      "volatility_weight": 0.4,
+      "slippage_weight": 0.4,
+      "execution_time_weight": 0.2,
+      "max_retries": 3,
+      "retry_delay": 1.0,
+      "retry_backoff": 2.0,
+      "confidence_threshold": 0.6
+    },
+    "logging": {
+      "level": "INFO",
+      "console": true,
+      "file": true,
+      "file_path": "logs/wave_strategy.log",
+      "max_file_size": 10485760,
+      "backup_count": 5
+    },
+    "notifications": {
+      "enabled": false,
+      "notify_on_startup": true,
+      "notify_on_shutdown": true,
+      "notify_on_rebalance": true,
+      "notify_on_profit": true,
+      "min_profit_notification": 1.0
+    },
+    "capital_per_exchange": {
+      "kucoin": 100.0,
+      "kraken": 100.0
+    }
+  },
+  "volatility_matrix": {
+    "BTC/USDT": [
+      0.005,
+      0.005,
+      0.005,
+      0.009398983996001805,
+      0.009856167649976814,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005
+    ],
+    "ETH/USDT": [
+      0.005,
+      0.005,
+      0.005,
+      0.022179883432043773,
+      0.014347868996358414,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005
+    ],
+    "XMR/USDT": [
+      0.005,
+      0.005,
+      0.005,
+      0.009162615735520557,
+      0.010251106254561652,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005
+    ],
+    "SOL/USDT": [
+      0.005,
+      0.005,
+      0.005,
+      0.017712888811810778,
+      0.021607298441262017,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005
+    ],
+    "AVAX/USDT": [
+      0.005,
+      0.005,
+      0.005,
+      0.018829145875834417,
+      0.01910427179930322,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005,
+      0.005
+    ]
+  },
+  "pair_metrics": {
+    "BTC/USDT": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "failed_trades": 0,
+      "total_profit": 0.0,
+      "success_rate": 0.0,
+      "avg_profit": 0.0,
+      "best_trade": 0.0,
+      "worst_trade": 0.0,
+      "volatility_index": 0.5,
+      "opportunity_frequency": 0.0,
+      "exchange_stats": {
+        "kucoin": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        },
+        "kraken": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        }
+      }
+    },
+    "ETH/USDT": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "failed_trades": 0,
+      "total_profit": 0.0,
+      "success_rate": 0.0,
+      "avg_profit": 0.0,
+      "best_trade": 0.0,
+      "worst_trade": 0.0,
+      "volatility_index": 0.5,
+      "opportunity_frequency": 0.0,
+      "exchange_stats": {
+        "kucoin": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        },
+        "kraken": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        }
+      }
+    },
+    "XMR/USDT": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "failed_trades": 0,
+      "total_profit": 0.0,
+      "success_rate": 0.0,
+      "avg_profit": 0.0,
+      "best_trade": 0.0,
+      "worst_trade": 0.0,
+      "volatility_index": 0.5,
+      "opportunity_frequency": 0.0,
+      "exchange_stats": {
+        "kucoin": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        },
+        "kraken": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        }
+      }
+    },
+    "SOL/USDT": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "failed_trades": 0,
+      "total_profit": 0.0,
+      "success_rate": 0.0,
+      "avg_profit": 0.0,
+      "best_trade": 0.0,
+      "worst_trade": 0.0,
+      "volatility_index": 0.5,
+      "opportunity_frequency": 0.0,
+      "exchange_stats": {
+        "kucoin": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        },
+        "kraken": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        }
+      }
+    },
+    "AVAX/USDT": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "failed_trades": 0,
+      "total_profit": 0.0,
+      "success_rate": 0.0,
+      "avg_profit": 0.0,
+      "best_trade": 0.0,
+      "worst_trade": 0.0,
+      "volatility_index": 0.5,
+      "opportunity_frequency": 0.0,
+      "exchange_stats": {
+        "kucoin": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        },
+        "kraken": {
+          "trades": 0,
+          "profit": 0.0,
+          "success_rate": 0.0,
+          "avg_execution_time": 0.0,
+          "slippage": 0.0,
+          "profit_ratio": 1.0
+        }
+      }
+    }
+  },
+  "exchange_balances": {
+    "kucoin": 0.00013826
+  },
+  "active_arbitrages": {},
+  "state": {
+    "last_rebalance": "2025-03-21T23:18:15.934625",
+    "performance": {
+      "total_trades": 0,
+      "successful_trades": 0,
+      "total_profit": 0.0,
+      "pairs": {
+        "BTC/USDT": {
+          "success_rate": 0.0,
+          "avg_profit": 0.0,
+          "total_profit": 0.0
+        },
+        "ETH/USDT": {
+          "success_rate": 0.0,
+          "avg_profit": 0.0,
+          "total_profit": 0.0
+        },
+        "XMR/USDT": {
+          "success_rate": 0.0,
+          "avg_profit": 0.0,
+          "total_profit": 0.0
+        },
+        "SOL/USDT": {
+          "success_rate": 0.0,
+          "avg_profit": 0.0,
+          "total_profit": 0.0
+        },
+        "AVAX/USDT": {
+          "success_rate": 0.0,
+          "avg_profit": 0.0,
+          "total_profit": 0.0
+        }
+      }
+    },
+    "last_update": "2025-03-21T23:18:50.493908"
+  }
+}
